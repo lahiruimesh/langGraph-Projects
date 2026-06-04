@@ -1,0 +1,31 @@
+python main.py
+
+input
+   ↓
+calculate_bmi
+   ↓
+result
+
+┌─────────────┐
+│ Input Node  │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│ BMI Node    │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│ Result Node │
+└──────┬──────┘
+       │
+       ▼
+      END
+
+
+* This is a Linear Graph and is the foundation for everything else in LangGraph.
+
+
+
+
