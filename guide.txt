@@ -14,4 +14,24 @@ Advice Node   Advice Node Advice Node
  │              │               │
  └───────→ END ←───────────────┘
 
- 
+ After calculate_bmi
+       ↓
+Run bmi_router()
+       ↓
+Return a label
+       ↓
+Jump to matching node
+
+
+Input
+  ↓
+BMI Calculation
+  ↓
+BMI Router
+  ↓
+ ┌─────────────┬─────────────┬─────────────┐
+ ▼             ▼             ▼
+Underweight   Normal     Overweight
+ Advice       Advice       Advice
+    │            │            │
+    └──────→ END ←────────────┘

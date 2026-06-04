@@ -18,23 +18,36 @@ def calculate_bmi_node(state: BMIState):
         "bmi": round(bmi, 2)
     }
 
+def underweight_node(state: BMIState):
+    print("\nAdvice:")
+    print("Increase calorie intake and strength training.")
 
-def result_node(state: BMIState):
+    return {}
+
+
+def normal_node(state: BMIState):
+    print("\nAdvice:")
+    print("Maintain your healthy lifestyle.")
+
+    return {}
+
+
+def overweight_node(state: BMIState):
+    print("\nAdvice:")
+    print("Focus on exercise and balanced nutrition.")
+
+    return {}
+
+def bmi_router(state: BMIState):
     bmi = state["bmi"]
+    print(f"\nYour BMI is: {bmi}")
 
     if bmi < 18.5:
-        category = "Underweight"
+        return "underweight"
+
     elif bmi < 25:
-        category = "Normal Weight"
-    elif bmi < 30:
-        category = "Overweight"
+        return "normal"
+
     else:
-        category = "Obese"
+        return "overweight"
 
-    print("\n===== BMI RESULT =====")
-    print(f"BMI: {bmi}")
-    print(f"Category: {category}")
-
-    return {
-        "category": category
-    }
