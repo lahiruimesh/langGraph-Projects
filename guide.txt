@@ -1,0 +1,17 @@
+Input → BMI → Result → END
+
+Input
+  ↓
+BMI Calculator
+  ↓
+Decision
+  ↓
+ ┌──────────────┬───────────────┐
+ │              │               │
+ ▼              ▼               ▼
+Underweight   Normal      Overweight/Obese
+Advice Node   Advice Node Advice Node
+ │              │               │
+ └───────→ END ←───────────────┘
+
+ 
