@@ -10,6 +10,24 @@ def input_node(state: BMIState):
         "height": height
     }
 
+def validate_bmi_node(state):
+    height = state["height"]
+
+    if height <= 0:
+        print("\nInvalid height!")
+        return {
+            "is_valid": False
+        }
+
+    return {
+        "is_valid": True
+    }
+
+def validation_router(state):
+    if state["is_valid"]:
+        return "valid"
+
+    return "invalid"
 
 def calculate_bmi_node(state: BMIState):
     bmi = state["weight"] / (state["height"] ** 2)
@@ -17,6 +35,11 @@ def calculate_bmi_node(state: BMIState):
     return {
         "bmi": round(bmi, 2)
     }
+
+def result_node(state: BMIState):
+    print(f"\nBMI: {state['bmi']}")
+    return {}
+
 
 def underweight_node(state: BMIState):
     print("\nAdvice:")

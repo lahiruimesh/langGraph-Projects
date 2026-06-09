@@ -1,37 +1,39 @@
-Input → BMI → Result → END
-
 Input
   ↓
-BMI Calculator
+Calculate BMI
   ↓
-Decision
-  ↓
- ┌──────────────┬───────────────┐
- │              │               │
- ▼              ▼               ▼
-Underweight   Normal      Overweight/Obese
-Advice Node   Advice Node Advice Node
- │              │               │
- └───────→ END ←───────────────┘
+Valid?
+ ┌───────┐
+ │ No    │
+ ▼       │
+Input ◄──┘
 
- After calculate_bmi
-       ↓
-Run bmi_router()
-       ↓
-Return a label
-       ↓
-Jump to matching node
+Yes
+ ↓
+Result
+ ↓
+END
 
 
-Input
-  ↓
-BMI Calculation
-  ↓
-BMI Router
-  ↓
- ┌─────────────┬─────────────┬─────────────┐
- ▼             ▼             ▼
-Underweight   Normal     Overweight
- Advice       Advice       Advice
-    │            │            │
-    └──────→ END ←────────────┘
+ ┌───────────┐
+ │   Input   │
+ └─────┬─────┘
+       │
+       ▼
+ ┌───────────┐
+ │ Validate  │
+ └─────┬─────┘
+       │
+  valid│invalid
+       │
+       ▼
+ Calculate BMI
+       │
+       ▼
+    Result
+       │
+       ▼
+      END
+
+invalid path:
+Validate ───► Input
