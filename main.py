@@ -46,7 +46,10 @@ if __name__ == "__main__":
     test_input = {
         "urls": [
             "https://cmlinsight.com/careers", 
-            "https://kaizens.co.uk/careers"
+            "https://kaizens.co.uk/careers",
+            "https://www.creativesoftware.com/careers#openvac",
+            "https://www.techlabs.tech/",
+            "https://evokelabs.io/careers/#career-evoke"    
         ]
     }
     
