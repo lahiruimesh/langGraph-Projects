@@ -1,8 +1,13 @@
-# Virtual Environment 
-venv/
-ENV/
-env/
-
-# API Keys 
+# Credentials & Secrets
 .env
+credentials.json
 
+# Python caches
+__pycache__/
+*.pyc
+
+# Local Databases
+career_spy.db
+
+# Environments
+venv/
