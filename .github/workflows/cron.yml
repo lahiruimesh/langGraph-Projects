@@ -2,9 +2,8 @@ name: CareerSpy AI Daily Automation
 
 on:
   schedule:
-    # 🕒 UTC වෙලාවෙන් හැමදාම උදේ 3:00 ට (ලංකාවේ වෙලාවෙන් හැමදාම උදේ 8:30 ට) ඔටෝ රන් වේ.
     - cron: '0 3 * * *'
-  workflow_dispatch: # 💡 මේක දැම්මාම GitHub එකට ගිහින් බටන් එකක් ඔබලත් ඕන වෙලාවක ලයිව් රන් කරන්න පුළුවන්
+  workflow_dispatch:
 
 jobs:
   run-agent:
@@ -28,10 +27,14 @@ jobs:
       run: |
         pip install -r requirements.txt
 
+    # 💡 100%ක්ම ආරක්ෂිතව, JSON එක කැඩෙන්නෙ නැතුව credentials.json එක හදන සුපිරිම ක්‍රමය මචං
     - name: Create credentials.json from GitHub Secrets
       run: |
-        echo "${{ secrets.GCP_CREDENTIALS_JSON }}" > credentials.json
+        cat << 'EOF' > credentials.json
+        ${{ secrets.GCP_CREDENTIALS_JSON }}
+        EOF
 
+    # 🚀 ඇප් එක රන් කිරීම
     - name: Execute CareerSpy Autonomous Agent
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
@@ -40,16 +43,16 @@ jobs:
         EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
       run: python main.py
 
+    # 📊 DB එක Commit කිරීම (Bash error එක සුද්ද කර ඇත මචං)
     - name: Save & Commit SQLite DB Changes (Anti-Duplication)
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action Bot"
-        # 💡 ෆයිල් එක තිබුණොත් විතරක් Git එකට ඇඩ් කරන්න කියලා චෙක් එකක් දානවා මචං
         if [ -f career_spy.db ]; then
           git add career_spy.db
           git diff --quiet && git diff --staged --quiet || git commit -m "📊 Cloud DB Auto-Updated [Skip CI]"
           git push origin careerspy
         else
-          print "career_spy.db not found, skipping commit."
+          echo "career_spy.db not found, skipping commit."
         fi
       continue-on-error: true
