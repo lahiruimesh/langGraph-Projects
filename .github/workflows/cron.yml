@@ -44,7 +44,12 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action Bot"
-        git add career_spy.db
-        git diff --quiet && git diff --staged --quiet || git commit -m "📊 Cloud DB Auto-Updated [Skip CI]"
-        git push origin careerspy
-      continue-on-error: true # ඩේටාබේස් එකේ අලුත් වෙනසක් නැත්නම් එරර් නොදී ඉස්සරහට යන්න
+        # 💡 ෆයිල් එක තිබුණොත් විතරක් Git එකට ඇඩ් කරන්න කියලා චෙක් එකක් දානවා මචං
+        if [ -f career_spy.db ]; then
+          git add career_spy.db
+          git diff --quiet && git diff --staged --quiet || git commit -m "📊 Cloud DB Auto-Updated [Skip CI]"
+          git push origin careerspy
+        else
+          print "career_spy.db not found, skipping commit."
+        fi
+      continue-on-error: true
