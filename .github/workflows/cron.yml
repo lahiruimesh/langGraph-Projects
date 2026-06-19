@@ -1,0 +1,50 @@
+name: CareerSpy AI Daily Automation
+
+on:
+  schedule:
+    # 🕒 UTC වෙලාවෙන් හැමදාම උදේ 3:00 ට (ලංකාවේ වෙලාවෙන් හැමදාම උදේ 8:30 ට) ඔටෝ රන් වේ.
+    - cron: '0 3 * * *'
+  workflow_dispatch: # 💡 මේක දැම්මාම GitHub එකට ගිහින් බටන් එකක් ඔබලත් ඕන වෙලාවක ලයිව් රන් කරන්න පුළුවන්
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python Environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Google Chrome & Playwright Dependencies
+      run: |
+        pip install playwright
+        playwright install --with-deps chromium
+
+    - name: Install Project Requirements
+      run: |
+        pip install -r requirements.txt
+
+    - name: Create credentials.json from GitHub Secrets
+      run: |
+        echo "${{ secrets.GCP_CREDENTIALS_JSON }}" > credentials.json
+
+    - name: Execute CareerSpy Autonomous Agent
+      env:
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+        EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
+      run: python main.py
+
+    - name: Save & Commit SQLite DB Changes (Anti-Duplication)
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action Bot"
+        git add career_spy.db
+        git diff --quiet && git diff --staged --quiet || git commit -m "📊 Cloud DB Auto-Updated [Skip CI]"
+        git push origin careerspy
+      continue-on-error: true # ඩේටාබේස් එකේ අලුත් වෙනසක් නැත්නම් එරර් නොදී ඉස්සරහට යන්න
