@@ -66,7 +66,7 @@ def ai_filter_node(state: AgentState) -> dict:
 
     system_prompt = (
         "You are an expert HR Data Extraction Agent. Analyze the provided web text.\n"
-        "Identify if there are active vacancies for 'Intern', 'AI', 'Machine Learning'.\n"
+        "Identify if there are active vacancies for 'Intern'.\n"
         "Return the output STRICTLY as a valid JSON array of objects. Do not include markdown formatting like ```json.\n"
         "If nothing matches, return an empty array [].\n\n"
         "Format:\n"
