@@ -56,6 +56,7 @@ websockets==15.0.1
 xxhash==3.7.0
 yarl==1.24.2
 zstandard==0.25.0
+psycopg2-binary==2.9.12
 langgraph
 langchain-core
 google-genai

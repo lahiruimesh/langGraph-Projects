@@ -1,25 +1,31 @@
+import os
+from dotenv import load_dotenv
 from graph import build_graph
-from database import fetch_target_urls, save_and_sync_vacancies
 from notifier import send_email_alert
+# 💡 SQLite වෙනුවට අපේ අලුත් Neon PostgreSQL ෆන්ක්ෂන්ස් ඉම්පෝර්ට් කරගත්තා මචං
+from database import init_db, is_job_duplicate, save_job_to_db
+
+load_dotenv()
 
 def main():
     print("==================================================")
-    # 1. Google Sheet එකෙන් Target URLs ලැයිස්තුව ඇදලා ගන්නවා
-    target_urls = fetch_target_urls()
+    print("🚀 CareerSpy Autonomous Agent Starting up...")
     
-    if not target_urls:
-        print("🛑 No target URLs found in the Google Sheet. Exiting...")
+    # 1. 🌐 Cloud Database එක ලයිව්ම Initialize කිරීම (Table එක නැත්නම් හදනවා)
+    try:
+        init_db()
+    except Exception as e:
+        print(f"❌ Database initialization failed: {e}")
         return
-        
-    print(f"📋 Found {len(target_urls)} target URLs to monitor.")
     
-    # 2. ඔයා කිව්වා වගේම වෙනම ෆයිල් එකකින් Graph එක ගන්නවා
+    # 2. 🏗️ LangGraph Workflow එක Build කර ගැනීම
     print("🏗️ Building LangGraph Agentic Workflow...")
     app = build_graph()
     
-    # 3. මුලින්ම දෙන State එක (Initial State) සමඟ Graph එක Invoke කරනවා
+    # 3. 🧠 මුලින්ම දෙන State එක (Initial State) සමඟ Graph එක Invoke කරනවා
+    # 💡 සර්ච් සහ ශීට් ලින්ක්ස් ඔක්කොම LangGraph එක ඇතුළෙන්ම Fetch වෙන නිසා මෙතන හිස්ව තියන්නේ මචං
     initial_state = {
-        "urls": target_urls,
+        "urls": [],
         "current_url_index": 0,
         "current_raw_text": "",
         "extracted_vacancies": []
@@ -33,11 +39,25 @@ def main():
     print(f"📊 Total jobs extracted by AI: {len(extracted_jobs)}")
     
     if extracted_jobs:
-        # 5. SQLite + Google Sheet සමඟ Sync කරලා, Duplicate නැති 'Fresh' ඒවා විතරක් ගන්නවා
-        fresh_jobs = save_and_sync_vacancies(extracted_jobs)
+        print("💾 Syncing jobs with Neon Cloud Database...")
+        fresh_jobs = []
+        
+        # 5. 🎯 Neon DB එකෙන් ලයිව් චෙක් කරලා Duplicate නැති 'Fresh' ඒවා විතරක් පෙරලා ගැනීම
+        for job in extracted_jobs:
+            title = job.get("job_title")
+            source = job.get("company_source")
+            
+            if title and source:
+                # Neon DB එකෙන් ලයිව්ම ඩුප්ලිකේට් ද බලනවා මචං
+                if not is_job_duplicate(title, source):
+                    save_job_to_db(title, source)
+                    fresh_jobs.append(job)
+        
+        print(f"✨ Total FRESH unique jobs found: {len(fresh_jobs)}")
         
         # 6. අලුත් ජොබ්ස් තියෙනවා නම් විතරක් Email එකක් බ්ලාස්ට් කරනවා
         if fresh_jobs:
+            print("📧 Preparing Email Blast for fresh opportunities...")
             send_email_alert(fresh_jobs)
         else:
             print("🔒 No new/fresh vacancies found since the last run. Notification skipped.")

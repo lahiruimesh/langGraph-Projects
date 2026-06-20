@@ -39,21 +39,10 @@ jobs:
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
         EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}
       run: python main.py
 
-    # 📊 DB එක Commit කිරීම (Bash error එක සුද්ද කර ඇත මචං)
-    - name: Save & Commit SQLite DB Changes (Anti-Duplication)
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action Bot"
-        if [ -f career_spy.db ]; then
-          git add -f career_spy.db
-          git diff --quiet && git diff --staged --quiet || git commit -m "📊 Cloud DB Auto-Updated [Skip CI]"
-          git push origin main
-        else
-          echo "career_spy.db not found, skipping commit."
-        fi
-      continue-on-error: true
+    
