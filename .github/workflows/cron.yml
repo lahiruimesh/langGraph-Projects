@@ -38,6 +38,7 @@ jobs:
     - name: Execute CareerSpy Autonomous Agent
       env:
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
         EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         EMAIL_RECEIVERS: ${{ secrets.EMAIL_RECEIVERS }}

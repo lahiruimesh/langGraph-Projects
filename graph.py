@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
 from state import CareerSpyState
-from nodes import scraper_node, ai_filter_node
+from nodes import scraper_node, ai_filter_node, fetch_urls_node
 
 def build_graph():
     """
@@ -11,11 +11,13 @@ def build_graph():
     workflow = StateGraph(CareerSpyState)
     
     # 2. අපේ Nodes දෙක Graph එකට ඇතුළත් කිරීම
+    workflow.add_node("fetch_urls_agent", fetch_urls_node)
     workflow.add_node("scraper_agent", scraper_node)
     workflow.add_node("ai_analyst_agent", ai_filter_node)
     
     # 3. Graph එක ඇතුළේ දත්ත ගලාගෙන යන පාරවල් (Edges) සකස් කිරීම
-    workflow.set_entry_point("scraper_agent")             # මුලින්ම යන්නේ Scraper එකට
+    workflow.set_entry_point("fetch_urls_agent")          # මුලින්ම යන්නේ URL Fetcher එකට
+    workflow.add_edge("fetch_urls_agent", "scraper_agent") # එතනින් කෙලින්ම Scraper එකට
     workflow.add_edge("scraper_agent", "ai_analyst_agent") # එතනින් කෙලින්ම AI එකට
     workflow.add_edge("ai_analyst_agent", END)            # AI එකෙන් පස්සේ Graph එක ඉවරයි
     

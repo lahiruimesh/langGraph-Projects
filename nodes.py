@@ -4,28 +4,59 @@ from google import genai
 from google.genai import types
 import os
 import json
+import gspread
 from dotenv import load_dotenv
 from state import CareerSpyState
+from search_utils import get_google_search_urls  # 🌐 සර්ච් ටූල් එක ඉම්පෝර්ට් කළා මචං
 
 load_dotenv()
 
-# 1. Google GenAI Client
+# Google GenAI Client
 client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+
+def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
+    """
+    පළමු Node එක: Google Sheet එකේ තියෙන URLs සහ ලයිව් Google Search එකෙන්
+    හම්බවෙන URLs දෙකම එකතු කර Unique ලිස්ට් එකක් සාදයි.
+    """
+    print("\n==================================================")
+    print("📋 Fetching Target URLs From Multi-Sources...")
+    combined_urls = []
+    
+    # 1. Google Sheet එකෙන් පරණ ලින්ක්ස් කියවීම
+    try:
+        # 💡 උඹේ Sheet ID එක මෙතනට දාන්න මචං
+        gc = gspread.service_account(filename="credentials.json")
+        sheet = gc.open_by_key("1Bddt_aV9bZ23kOxH4D5H_ExAmPLEY_YOUR_SHEET_ID").sheet1
+        sheet_urls = sheet.col_values(1)[1:]  # Header එක ඇර ඉතිරි ටික
+        print(f"📊 Found {len(sheet_urls)} URLs inside Google Sheet.")
+        combined_urls.extend(sheet_urls)
+    except Exception as e:
+        print(f"❌ Error fetching URLs from Google Sheet: {e}")
+
+    # 2. Serper API එකෙන් ලයිව් ගූගල් සර්ච් කර අලුත් ලින්ක්ස් ගැනීම
+    search_urls = get_google_search_urls()
+    combined_urls.extend(search_urls)
+    
+    # 3. Smart Deduplication (ලින්ක්ස් ඩියුප්ලිකේට් වීම වැළැක්වීම)
+    unique_urls = list(set(combined_urls))
+    
+    print(f"🚀 Total Unique URLs to scan today: {len(unique_urls)}")
+    print("==================================================")
+    
+    return {"urls": unique_urls}
 
 def scraper_node(state: CareerSpyState) -> CareerSpyState:
     """
-    පළමු Node එක: Playwright (Headless Browser) පාවිච්චි කර JavaScript රන් වනකන් 
+    දෙවන Node එක: Playwright (Headless Browser) පාවිච්චි කර JavaScript රන් වනකන් 
     ඉදලා, BeautifulSoup මඟින් HTML සුද්ද කර එකම String එකකට ගොනු කරයි.
     """
-    print("\n🔍 Node 1: Scraping target career pages using Playwright...")
+    print("\n🔍 Node 2: Scraping target career pages using Playwright...")
     urls = state.get("urls", [])
     all_clean_texts = []
     
-    # 🔄 Playwright සන්දර්භය ආරම්භ කිරීම
     with sync_playwright() as p:
-        # headless=True නිසා බැක්ග්‍රවුන්ඩ් එකේ හොරෙන්ම බ්‍රවුසර් එක රන් වෙන්නේ මචං
         browser = p.chromium.launch(headless=True)
-        # සැබෑ මනුස්සයෙක් වගේ පේන්න User Agent එකක් දානවා (Anti-bot block නොවෙන්න)
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
@@ -34,23 +65,16 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
         for url in urls:
             print(f"🌐 Playwright opening: {url}")
             try:
-                # සයිට් එකට යනවා (තත්පර 20ක Timeout එකක් සමඟ)
                 page.goto(url, timeout=20000, wait_until="load")
-                
-                # 💡 JS Heavy සයිට් වලට තත්පර 3ක් ඉන්න දෙනවා ජොබ්ස් ටික screen එකට අදිනකන්
                 page.wait_for_timeout(3000) 
                 
-                # සම්පූර්ණයෙන්ම Render වුණු HTML එක ගන්නවා
                 html_content = page.content()
-                
-                # BeautifulSoup පාවිච්චි කරලා කුණු සුද්ද කිරීම
                 soup = BeautifulSoup(html_content, 'html.parser')
                 for element in soup(["script", "style", "nav", "footer", "header", "noscript"]):
                     element.decompose()
                 
                 clean_text = soup.get_text(separator=' ', strip=True)
                 
-                # Gemini එකට සයිට් වෙන් කරලා අඳුනගන්න Tags දමා එකතු කිරීම
                 if len(clean_text.strip()) > 100:
                     site_data = f"<source_site url='{url}'>\n{clean_text}\n</source_site>\n"
                     all_clean_texts.append(site_data)
@@ -61,7 +85,7 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
             except Exception as e:
                 print(f"❌ Playwright failed to scrape {url}: {e}")
                 
-        browser.close() # වැඩේ ඉවර වුණාම බ්‍රවුසර් එක වහනවා
+        browser.close()
         
     combined_text = "\n".join(all_clean_texts)
     return {
@@ -70,10 +94,10 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
 
 def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     """
-    දෙවන Node එක: මුළු Text එකම එකම එක Request එකකින් Gemini 2.5 Flash වෙත යවා,
+    තෙවන Node එක: මුළු Text එකම එකම එක Request එකකින් Gemini වෙත යවා,
     Strictly Internships විතරක්ම පෙරලා ගනී.
     """
-    print("\n🧠 Node 2: Analyzing text in ONE single request with Gemini 2.5 Flash...")
+    print("\n🧠 Node 3: Analyzing text in ONE single request with Gemini...")
     raw_text = state.get("current_raw_text", "")
     
     if not raw_text.strip():
@@ -86,10 +110,9 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     CRITICAL INSTRUCTION: Your ONLY task is to extract job openings that are strictly for "Interns", "Internships", or "Trainees".
     
     STRICT FILTERING RULES:
-    1. The position MUST be a learning/entry-level role (e.g., Intern, Software Intern, Trainee, Management Trainee).
-    2. Do NOT extract permanent, full-time, mid-level, associate, or senior positions. For example, roles like "Senior IFS Software Engineer", "Associate Consultant", "Machine Learning Engineer", or "Software Engineer" are strictly FORBIDDEN.
-    3. Ensure the 'company_source' field matches the EXACT 'url' attribute specified in the corresponding <source_site> tag where the vacancy was found.
-    4. If a website contains zero intern or trainee positions, do NOT extract anything from that site.
+    1. The position MUST be a learning/entry-level role (e.g., Intern,Trainee).
+    2. Ensure the 'company_source' field matches the EXACT 'url' attribute specified in the corresponding <source_site> tag where the vacancy was found.
+    3. If a website contains zero intern or trainee positions, do NOT extract anything from that site.
 
     Scraped Content:
     {raw_text}
@@ -110,7 +133,7 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',
+            model='gemini-2.5-flash', # 💡 Free limit ස්ටේබල් වෙන්න Lite වෙනුවට Standard Flash එක දැම්මා මචං
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
