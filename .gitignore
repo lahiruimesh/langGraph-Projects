@@ -7,7 +7,7 @@ __pycache__/
 *.pyc
 
 # Local Databases
-career_spy.db
+#career_spy.db
 
 # Environments
 venv/
