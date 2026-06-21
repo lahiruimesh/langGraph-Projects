@@ -105,14 +105,28 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
         return {"extracted_vacancies": []}
         
     prompt = f"""
-    You are an expert HR Data Extraction Agent. Analyze the provided scraped content enclosed in <source_site> tags.
+    You are an expert HR Data Extraction Agent specializing in the Technology and Software Engineering sectors. 
+    Analyze the provided scraped content enclosed in <source_site> tags.
     
-    CRITICAL INSTRUCTION: Your ONLY task is to extract job openings that are strictly for "Interns", "Internships", or "Trainees".
+    CRITICAL INSTRUCTION: Your ONLY task is to extract job openings that are strictly for IT/Software Industry "Interns", "Internships", or "Trainees".
     
     STRICT FILTERING RULES:
-    1. The position MUST be a learning/entry-level role (e.g., Intern,Trainee).
-    2. Ensure the 'company_source' field matches the EXACT 'url' attribute specified in the corresponding <source_site> tag where the vacancy was found.
-    3. If a website contains zero intern or trainee positions, do NOT extract anything from that site.
+    1. The position MUST be a learning/entry-level role (e.g., Intern, Trainee) AND MUST belong strictly to the Information Technology (IT) / Software Engineering domain.
+    
+    2. ALLOWED TECH DOMAINS (EXTRACT THESE):
+       - Software Engineering / Web Development (Fullstack, Backend, Frontend, React, .NET, Python, Node, PHP, Laravel, Java, etc.)
+       - Quality Assurance (QA) / Software Testing (Manual & Automation)
+       - AI / Machine Learning / Data Science / Data Analytics
+       - Cloud Computing / DevOps / Systems & Network Engineering / IT Support / IT Intern
+       - UI/UX Design / Product Design
+       
+    3. STRICTLY FORBIDDEN DOMAINS (DO NOT EXTRACT THESE):
+       - Completely ignore non-tech roles even if they have "Intern" or "Trainee" in the title.
+       - Strictly FORBIDDEN: Finance, Accounting, Management Trainee, Human Resources (HR), Marketing, Sales, Business Development, Logistics, Procurement, Administrative, Secretarial, Operations, Industrial Engineering, or Mechanical roles. (e.g., Do NOT extract "Finance Intern", "Marketing Intern", or "Management Trainee").
+
+    4. Ensure the 'company_source' field matches the EXACT 'url' attribute specified in the corresponding <source_site> tag where the vacancy was found.
+    
+    5. If a website contains zero valid IT/Tech intern or trainee positions, do NOT extract anything from that site.
 
     Scraped Content:
     {raw_text}

@@ -47,7 +47,7 @@ def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
             <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold; color: #1e293b;">{title}</td>
             <td style="padding: 12px; border: 1px solid #ddd; color: #475569; font-size: 14px;">{skills}</td>
             <td style="padding: 12px; border: 1px solid #ddd; text-align: center;">
-                <a href="{source}" style="background-color: #2563eb; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: bold;">Apply Now</a>
+                <a href="{source}" style="background-color: #0080FF; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 13px; font-weight: bold;">Apply</a>
             </td>
         </tr>
         """
@@ -55,11 +55,11 @@ def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
     # 3. සම්පූර්ණ HTML Email body එක (Modern Dark/Light Hybrid UI එකක් මචං)
     html_content = f"""
     <html>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 20px; margin: 0;">
-        <div style="max-width: 650px; background-color: #ffffff; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-            <div style="background-color: #1e293b; padding: 20px; text-align: center; color: #ffffff;">
-                <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">🎯 CareerSpy AI Alert</h1>
-                <p style="margin: 5px 0 0 0; color: #94a3b8; font-size: 14px;">Autonomous Job Hunter Network Found New Matches!</p>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 24px; margin: 0;">
+        <div style="max-width: 700px; background-color: #ffffff; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+            <div style="background-color: #0080FF; padding: 28px; text-align: center; color: #ffffff;">
+                <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">CareerSpy AI Alert</h1>
+                <p style="margin: 5px 0 0 0; color: #ffffff; font-size: 14px;">Autonomous Job Hunter Network Found New Matches!</p>
             </div>
             <div style="padding: 24px;">
                 <p style="color: #334155; font-size: 16px;">Hey Team,</p>
