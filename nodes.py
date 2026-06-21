@@ -7,51 +7,50 @@ import json
 import gspread
 from dotenv import load_dotenv
 from state import CareerSpyState
-from search_utils import get_google_search_urls  # 🌐 සර්ච් ටූල් එක ඉම්පෝර්ට් කළා මචං
+from search_utils import get_google_search_urls  # Import the Google search helper.
 
 load_dotenv()
 
-# Google GenAI Client
+# Google GenAI client.
 client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
     """
-    පළමු Node එක: Google Sheet එකේ තියෙන URLs සහ ලයිව් Google Search එකෙන්
-    හම්බවෙන URLs දෙකම එකතු කර Unique ලිස්ට් එකක් සාදයි.
+    First node: combine URLs from the Google Sheet and live Google Search results
+    into a unique list.
     """
     print("\n==================================================")
-    print("📋 Fetching Target URLs From Multi-Sources...")
+    print("Fetching target URLs from multiple sources...")
     combined_urls = []
     
-    # 1. Google Sheet එකෙන් පරණ ලින්ක්ස් කියවීම
+    # 1. Read existing links from the Google Sheet.
     try:
-        # 💡 උඹේ Sheet ID එක මෙතනට දාන්න මචං
         gc = gspread.service_account(filename="credentials.json")
         sheet = gc.open_by_key("1PhWmYoRpxE7Cs-8BzE1FEkcxml3aiwuymRLSSRf9UMI").sheet1
-        sheet_urls = sheet.col_values(1)[1:]  # Header එක ඇර ඉතිරි ටික
-        print(f"📊 Found {len(sheet_urls)} URLs inside Google Sheet.")
+        sheet_urls = sheet.col_values(1)[1:]  # Skip the header row.
+        print(f"Found {len(sheet_urls)} URLs inside the Google Sheet.")
         combined_urls.extend(sheet_urls)
     except Exception as e:
-        print(f"❌ Error fetching URLs from Google Sheet: {e}")
+        print(f"Error fetching URLs from Google Sheet: {e}")
 
-    # 2. Serper API එකෙන් ලයිව් ගූගල් සර්ච් කර අලුත් ලින්ක්ස් ගැනීම
+    # 2. Fetch fresh links from live Google Search via Serper.
     search_urls = get_google_search_urls()
     combined_urls.extend(search_urls)
     
-    # 3. Smart Deduplication (ලින්ක්ස් ඩියුප්ලිකේට් වීම වැළැක්වීම)
+    # 3. Deduplicate the combined list.
     unique_urls = list(set(combined_urls))
     
-    print(f"🚀 Total Unique URLs to scan today: {len(unique_urls)}")
+    print(f"Total unique URLs to scan today: {len(unique_urls)}")
     print("==================================================")
     
     return {"urls": unique_urls}
 
 def scraper_node(state: CareerSpyState) -> CareerSpyState:
     """
-    දෙවන Node එක: Playwright (Headless Browser) පාවිච්චි කර JavaScript රන් වනකන් 
-    ඉදලා, BeautifulSoup මඟින් HTML සුද්ද කර එකම String එකකට ගොනු කරයි.
+    Second node: use Playwright to render JavaScript-heavy pages, then clean the
+    HTML with BeautifulSoup and combine the text into a single string.
     """
-    print("\n🔍 Node 2: Scraping target career pages using Playwright...")
+    print("\nNode 2: Scraping target career pages using Playwright...")
     urls = state.get("urls", [])
     all_clean_texts = []
     
@@ -63,7 +62,7 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
         page = context.new_page()
         
         for url in urls:
-            print(f"🌐 Playwright opening: {url}")
+            print(f"Playwright opening: {url}")
             try:
                 page.goto(url, timeout=20000, wait_until="load")
                 page.wait_for_timeout(3000) 
@@ -78,12 +77,12 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
                 if len(clean_text.strip()) > 100:
                     site_data = f"<source_site url='{url}'>\n{clean_text}\n</source_site>\n"
                     all_clean_texts.append(site_data)
-                    print(f"✅ Successfully rendered & scraped {url}")
+                    print(f"Successfully rendered and scraped {url}")
                 else:
-                    print(f"⚠️ Warning: Scraped text from {url} is too short.")
+                    print(f"Warning: scraped text from {url} is too short.")
                     
             except Exception as e:
-                print(f"❌ Playwright failed to scrape {url}: {e}")
+                print(f"Playwright failed to scrape {url}: {e}")
                 
         browser.close()
         
@@ -94,14 +93,14 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
 
 def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     """
-    තෙවන Node එක: මුළු Text එකම එකම එක Request එකකින් Gemini වෙත යවා,
-    Strictly Internships විතරක්ම පෙරලා ගනී.
+    Third node: send the full text to Gemini in a single request and extract only
+    strictly relevant internship opportunities.
     """
-    print("\n🧠 Node 3: Analyzing text in ONE single request with Gemini...")
+    print("\nNode 3: Analyzing text in one request with Gemini...")
     raw_text = state.get("current_raw_text", "")
     
     if not raw_text.strip():
-        print("📭 No text scraped to analyze.")
+        print("No scraped text available for analysis.")
         return {"extracted_vacancies": []}
         
     prompt = f"""
@@ -147,7 +146,7 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash', # 💡 Free limit ස්ටේබල් වෙන්න Lite වෙනුවට Standard Flash එක දැම්මා මචං
+            model='gemini-2.5-flash',  # Use the standard Flash model for stability.
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -157,9 +156,9 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
         )
         
         vacancies = json.loads(response.text)
-        print(f"🎯 Gemini processed everything in 1 call and found {len(vacancies)} valid Internships!")
+        print(f"Gemini processed everything in one call and found {len(vacancies)} valid internships!")
         return {"extracted_vacancies": vacancies}
         
     except Exception as e:
-        print(f"❌ Gemini API Error: {e}")
+        print(f"Gemini API error: {e}")
         return {"extracted_vacancies": []}

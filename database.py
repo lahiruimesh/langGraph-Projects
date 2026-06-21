@@ -4,15 +4,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Neon Cloud DB Connection String
+# Neon cloud database connection string.
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
-    """Neon PostgreSQL DB එකට ආරක්ෂිතව කනෙක්ට් වන ෆන්ක්ෂන් එක"""
+    """Create a PostgreSQL connection for the Neon database."""
     return psycopg2.connect(DATABASE_URL)
 
 def init_db():
-    """සර්වර් එකේ මුලින්ම Table එක ක්‍රියේට් කරන එක (SQLite වල AUTOINCREMENT වෙනුවට SERIAL)"""
+    """Create the job history table if it does not already exist."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
@@ -26,10 +26,10 @@ def init_db():
     conn.commit()
     cursor.close()
     conn.close()
-    print("✨ Neon PostgreSQL Database Initialized Successfully!")
+    print("Neon PostgreSQL database initialized successfully!")
 
 def is_job_duplicate(job_title, company_source):
-    """පරණ ජොබ් එකක්දැයි Neon DB එකෙන් ලයිව් චෙක් කිරීම (SQLite '?' වෙනුවට '%s')"""
+    """Check whether a job already exists in the Neon database."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -42,7 +42,7 @@ def is_job_duplicate(job_title, company_source):
     return result is not None
 
 def save_job_to_db(job_title, company_source):
-    """අලුත් ජොබ් එකක් Neon DB එකට සේව් කිරීම (ආරක්ෂිත ක්‍රමය)"""
+    """Save a new job to the Neon database."""
     conn = None
     cursor = None
     try:
@@ -53,13 +53,13 @@ def save_job_to_db(job_title, company_source):
             (job_title, company_source)
         )
         conn.commit()
-        print(f"💾 Successfully logged to Neon: {job_title}") # ලොග් එකක් දැම්මා මචං
+        print(f"Successfully logged to Neon: {job_title}")
     except Exception as e:
-        print(f"❌ Error saving to Neon DB: {e}")
+        print(f"Error saving to Neon DB: {e}")
         if conn:
             conn.rollback()
     finally:
-        # 💡 කනෙක්ෂන් එකක් තිබුණොත් පමණක් ක්ලෝස් කිරීමට සේෆ්ටි චෙක් එකක් දැම්මා
+        # Close resources only when they were created successfully.
         if cursor:
             cursor.close()
         if conn:

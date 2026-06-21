@@ -10,32 +10,31 @@ load_dotenv()
 
 def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
     """
-    Challenge 7 විසඳුම: අලුතින් සොයාගත් ජොබ්ස් ලැයිස්තුව 
-    සියලුම ලබන්නන් වෙත ලස්සන HTML Table එකක් ලෙස Email කරයි.
+    Send the newly discovered jobs to all recipients as a formatted HTML table.
     """
     if not fresh_jobs:
-        print("📭 No fresh jobs to notify.")
+        print("No fresh jobs to notify.")
         return
 
-    print("📧 Preparing Email Blast for fresh opportunities...")
+    print("Preparing email alert for fresh opportunities...")
     
-    # 1. Environment variables වලින් Credentials කියවා ගැනීම
+    # 1. Read credentials from environment variables.
     sender_email = os.getenv("EMAIL_SENDER")
-    # ⚠️ මතක ඇතුව මේකට දාන්න ඕනේ ඔයාගේ සාමාන්‍ය password එක නෙවෙයි, Google App Password එකක්!
+    # Use a Google App Password here, not your regular account password.
     sender_password = os.getenv("EMAIL_PASSWORD") 
     
-    # .env එකේ RECEIVERS ටික ලියන්නේ ['abc@gmail.com', 'xyz@gmail.com'] වගේ JSON string එකක් විදිහටයි
+    # EMAIL_RECEIVERS should be a JSON list such as ["a@example.com", "b@example.com"].
     try:
         receivers = loads(os.getenv("EMAIL_RECEIVERS", "[]"))
     except Exception:
-        print("❌ Error parsing EMAIL_RECEIVERS from .env. Make sure it's a valid JSON list.")
+        print("Error parsing EMAIL_RECEIVERS from .env. Make sure it is a valid JSON list.")
         return
 
     if not sender_email or not sender_password or not receivers:
-        print("⚠️ Email credentials or receivers list missing in .env file.")
+        print("Email credentials or receivers list missing in the .env file.")
         return
 
-    # 2. HTML Table එක ඩයිනමික් ලෙස බිල්ඩ් කිරීම
+    # 2. Build the HTML table dynamically.
     table_rows = ""
     for job in fresh_jobs:
         title = job.get("job_title", "N/A")
@@ -52,7 +51,7 @@ def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
         </tr>
         """
 
-    # 3. සම්පූර්ණ HTML Email body එක (Modern Dark/Light Hybrid UI එකක් මචං)
+    # 3. Build the full HTML email body.
     html_content = f"""
     <html>
     <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; padding: 24px; margin: 0;">
@@ -86,24 +85,24 @@ def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
     </html>
     """
 
-    # 4. SMTP සාදා Email එක පිටත් කිරීම
+    # 4. Send the email over SMTP.
     try:
         msg = MIMEMultipart('alternative')
         msg['Subject'] = f"CareerSpy AI - {len(fresh_jobs)} New Tech Vacancies Discovered!"
         msg['From'] = sender_email
-        msg['To'] = ", ".join(receivers) # හැමෝටම එකවර බ්ලාස්ට් වීම
+        msg['To'] = ", ".join(receivers)
         
         msg.attach(MIMEText(html_content, 'html'))
         
-        # Gmail SMTP Server එකට කනෙක්ට් වීම (Port 587 with TLS)
+        # Connect to Gmail SMTP using TLS on port 587.
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(sender_email, sender_password)
         
-        # Email එක බ්ලාස්ට් කිරීම
+        # Send the email.
         server.sendmail(sender_email, receivers, msg.as_string())
         server.quit()
-        print(f"✅ Multi-Email blast successful to {len(receivers)} receivers!")
+        print(f"Email sent successfully to {len(receivers)} receivers!")
         
     except Exception as e:
-        print(f"❌ Failed to send email alerts: {e}")
+        print(f"Failed to send email alerts: {e}")
