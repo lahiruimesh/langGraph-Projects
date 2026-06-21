@@ -27,7 +27,7 @@ def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
     try:
         # 💡 උඹේ Sheet ID එක මෙතනට දාන්න මචං
         gc = gspread.service_account(filename="credentials.json")
-        sheet = gc.open_by_key("1Bddt_aV9bZ23kOxH4D5H_ExAmPLEY_YOUR_SHEET_ID").sheet1
+        sheet = gc.open_by_key("1PhWmYoRpxE7Cs-8BzE1FEkcxml3aiwuymRLSSRf9UMI").sheet1
         sheet_urls = sheet.col_values(1)[1:]  # Header එක ඇර ඉතිරි ටික
         print(f"📊 Found {len(sheet_urls)} URLs inside Google Sheet.")
         combined_urls.extend(sheet_urls)
