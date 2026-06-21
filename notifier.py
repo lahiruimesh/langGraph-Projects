@@ -89,7 +89,7 @@ def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
     # 4. SMTP සාදා Email එක පිටත් කිරීම
     try:
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f"🚀 [CareerSpy AI] {len(fresh_jobs)} New Tech Vacancies Discovered!"
+        msg['Subject'] = f"CareerSpy AI - {len(fresh_jobs)} New Tech Vacancies Discovered!"
         msg['From'] = sender_email
         msg['To'] = ", ".join(receivers) # හැමෝටම එකවර බ්ලාස්ට් වීම
         
