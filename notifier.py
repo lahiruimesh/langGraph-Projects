@@ -27,7 +27,7 @@ def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
     try:
         receivers = loads(os.getenv("EMAIL_RECEIVERS", "[]"))
     except Exception:
-        print("Error parsing EMAIL_RECEIVERS from .env. Make sure it is a valid JSON list.")
+        print("❌ Error parsing EMAIL_RECEIVERS from .env. Make sure it is a valid JSON list.")
         return
 
     if not sender_email or not sender_password or not receivers:
@@ -105,4 +105,4 @@ def send_email_alert(fresh_jobs: List[Dict[str, Any]]):
         print(f"Email sent successfully to {len(receivers)} receivers!")
         
     except Exception as e:
-        print(f"Failed to send email alerts: {e}")
+        print(f"❌ Failed to send email alerts: {e}")

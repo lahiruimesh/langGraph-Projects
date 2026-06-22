@@ -15,7 +15,7 @@ def main():
     try:
         init_db()
     except Exception as e:
-        print(f"Database initialization failed: {e}")
+        print(f"❌ Database initialization failed: {e}")
         return
     
     # 2. Build the LangGraph workflow.

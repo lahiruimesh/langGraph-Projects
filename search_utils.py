@@ -49,9 +49,9 @@ def get_google_search_urls():
                             if not any(x in link for x in ["linkedin.com/feed", "google.com"]):
                                 all_discovered_urls.append(link)
             else:
-                print(f"Serper API error for query '{query}': status {response.status_code}")
+                print(f"❌ Serper API error for query '{query}': status {response.status_code}")
         except Exception as e:
-            print(f"Exception during Google search for query '{query}': {e}")
+            print(f"❌ Exception during Google search for query '{query}': {e}")
 
     # Deduplicate URLs found across multiple search queries.
     unique_urls = list(set(all_discovered_urls))

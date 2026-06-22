@@ -31,7 +31,7 @@ def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
         print(f"Found {len(sheet_urls)} URLs inside the Google Sheet.")
         combined_urls.extend(sheet_urls)
     except Exception as e:
-        print(f"Error fetching URLs from Google Sheet: {e}")
+        print(f"❌ Error fetching URLs from Google Sheet: {e}")
 
     # 2. Fetch fresh links from live Google Search via Serper.
     search_urls = get_google_search_urls()
@@ -82,7 +82,7 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
                     print(f"Warning: scraped text from {url} is too short.")
                     
             except Exception as e:
-                print(f"Playwright failed to scrape {url}: {e}")
+                print(f"❌ Playwright failed to scrape {url}: {e}")
                 
         browser.close()
         
@@ -146,7 +146,7 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',  # Use the standard Flash model for stability.
+            model='gemini-2.5-flash-lite',  # Use the standard Flash model for stability.
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -160,5 +160,5 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
         return {"extracted_vacancies": vacancies}
         
     except Exception as e:
-        print(f"Gemini API error: {e}")
+        print(f"❌ Gemini API error: {e}")
         return {"extracted_vacancies": []}

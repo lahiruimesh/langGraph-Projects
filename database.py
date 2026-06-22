@@ -55,7 +55,7 @@ def save_job_to_db(job_title, company_source):
         conn.commit()
         print(f"Successfully logged to Neon: {job_title}")
     except Exception as e:
-        print(f"Error saving to Neon DB: {e}")
+        print(f"❌ Error saving to Neon DB: {e}")
         if conn:
             conn.rollback()
     finally:
