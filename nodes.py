@@ -5,6 +5,7 @@ from google.genai import types
 import os
 import json
 import gspread
+import time  # 💡 Retry logic එකට time සෙට් කළා මචං
 from dotenv import load_dotenv
 from state import CareerSpyState
 from search_utils import get_google_search_urls  # Import the Google search helper.
@@ -13,29 +14,6 @@ load_dotenv()
 
 # Google GenAI client.
 client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-
-def _normalize_vacancies_payload(payload):
-    if payload is None:
-        return []
-
-    if isinstance(payload, list):
-        normalized = []
-        for item in payload:
-            if hasattr(item, "model_dump"):
-                normalized.append(item.model_dump())
-            elif isinstance(item, dict):
-                normalized.append(item)
-            else:
-                normalized.append(item)
-        return normalized
-
-    if hasattr(payload, "model_dump"):
-        return [payload.model_dump()]
-
-    if isinstance(payload, dict):
-        return [payload]
-
-    return []
 
 def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
     """
@@ -117,7 +95,7 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
 def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     """
     Third node: send the full text to Gemini in a single request and extract only
-    strictly relevant internship opportunities.
+    strictly relevant internship opportunities. Includes strong error-handling and retries.
     """
     print("\nNode 3: Analyzing text in one request with Gemini...")
     raw_text = state.get("current_raw_text", "")
@@ -137,10 +115,7 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     2. ALLOWED TECH DOMAINS (EXTRACT THESE):
        - Software Engineering / Web Development (Fullstack, Backend, Frontend, React, .NET, Python, Node, PHP, Laravel, Java, etc.)
-       - Quality Assurance (QA) / Software Testing (Manual & Automation)
-       - AI / Machine Learning / Data Science / Data Analytics
-       - Cloud Computing / DevOps / Systems & Network Engineering / IT Support / IT Intern
-       - UI/UX Design / Product Design
+       - AI / Machine Learning / Data Science / Data Analytics / Data Engineer
        
     3. STRICTLY FORBIDDEN DOMAINS (DO NOT EXTRACT THESE):
        - Completely ignore non-tech roles even if they have "Intern" or "Trainee" in the title.
@@ -149,6 +124,10 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     4. Ensure the 'company_source' field matches the EXACT 'url' attribute specified in the corresponding <source_site> tag where the vacancy was found.
     
     5. If a website contains zero valid IT/Tech intern or trainee positions, do NOT extract anything from that site.
+
+    ⚠️ JSON INTEGRITY RULES:
+    - Ensure ALL output strings are safe for standard JSON parsing.
+    - Remove any unescaped double quotes, control characters, or trailing commas within objects.
 
     Scraped Content:
     {raw_text}
@@ -167,36 +146,36 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
         }
     }
     
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash-lite',  # Use the standard Flash model for stability.
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=json_schema,
-                temperature=0.0
-            ),
-        )
-        
-        vacancies = None
+    # 💡 Smart Retry Loop (503 සර්වර් ඩවුන් හෝ Delimiter බග් එකක් ආවොත් බේරෙන්න)
+    max_retries = 3
+    retry_delay = 5
+    
+    for attempt in range(max_retries):
         try:
-            vacancies = response.parsed
-        except Exception:
-            vacancies = None
-        if vacancies is None:
-            response_text = response.text.strip()
-            if response_text.startswith("```"):
-                first_newline = response_text.find("\n")
-                if first_newline != -1:
-                    response_text = response_text[first_newline + 1 :]
-                if response_text.endswith("```"):
-                    response_text = response_text[:-3].strip()
-            vacancies = json.loads(response_text)
-
-        vacancies = _normalize_vacancies_payload(vacancies)
-        print(f"Gemini processed everything in one call and found {len(vacancies)} valid internships!")
-        return {"extracted_vacancies": vacancies}
-        
-    except Exception as e:
-        print(f"❌ Gemini API error: {e}")
-        return {"extracted_vacancies": []}
+            response = client.models.generate_content(
+                model='gemini-2.5-flash-lite',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=json_schema,
+                    temperature=0.0
+                ),
+            )
+            
+            # 💡 Clean JSON String (පයිතන් වලට කියවන්න බැරි වෙන අමුතු කොටස් පිරිසිදු කිරීම)
+            clean_response_text = response.text.strip()
+            
+            # පයිතන් JSON ලෝඩර් එකට ඔරොත්තු දෙන විදිහට parsing කිරීම
+            vacancies = json.loads(clean_response_text)
+            print(f"✅ Gemini processed everything successfully on attempt {attempt + 1} and found {len(vacancies)} valid internships!")
+            return {"extracted_vacancies": vacancies}
+            
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"⚠️ Attempt {attempt + 1}/{max_retries} failed with error: {e}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                print("❌ All Gemini extraction attempts failed.")
+                return {"extracted_vacancies": []}
