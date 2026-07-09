@@ -9,6 +9,7 @@ import time  # 💡 Retry logic එකට time සෙට් කළා මචං
 from dotenv import load_dotenv
 from state import CareerSpyState
 from search_utils import get_google_search_urls  # Import the Google search helper.
+import re
 
 load_dotenv()
 
@@ -46,6 +47,8 @@ def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
     
     return {"urls": unique_urls}
 
+
+
 def scraper_node(state: CareerSpyState) -> CareerSpyState:
     """
     Second node: use Playwright to render JavaScript-heavy pages, then clean the
@@ -70,15 +73,25 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
                 
                 html_content = page.content()
                 soup = BeautifulSoup(html_content, 'html.parser')
-                for element in soup(["script", "style", "nav", "footer", "header", "noscript"]):
+                
+                # 💡 1. සයිට් එකේ තියෙන ඔක්කොම අනවශ්‍ය ටැග්ස් කුණු ටික අයින් කරනවා
+                for element in soup(["script", "style", "nav", "footer", "header", "noscript", "svg", "form"]):
                     element.decompose()
                 
                 clean_text = soup.get_text(separator=' ', strip=True)
                 
+                # 💡 2. ATS පේජ් වල තියෙන අමුතු JSON/Config ලයින්, බහුතරයක් spaces සහ නිව්ලයින් ක්ලීන් කිරීම
+                clean_text = re.sub(s=clean_text, pattern=r'\s+', repl=' ') # Multiple spaces/newlines තනි සිංගල් ස්පේස් එකක් කරනවා
+                clean_text = re.sub(s=clean_text, pattern=r'[{}[\]""\\]', repl=' ') # JSON කඩන බකට් සහ ස්ලෑෂ් අයින් කරනවා මචං
+                
+                # 💡 3. එක සයිට් එකකින් උපරිම අකුරු 40,000කට සීමා කරනවා (Tokens ඉතිරි කරගන්න සහ බග්ස් වළක්වන්න)
+                if len(clean_text) > 40000:
+                    clean_text = clean_text[:40000] + "... [Truncated for Token safety]"
+                
                 if len(clean_text.strip()) > 100:
                     site_data = f"<source_site url='{url}'>\n{clean_text}\n</source_site>\n"
                     all_clean_texts.append(site_data)
-                    print(f"Successfully rendered and scraped {url}")
+                    print(f"Successfully rendered and scraped {url} (Length: {len(clean_text)})")
                 else:
                     print(f"Warning: scraped text from {url} is too short.")
                     
@@ -126,8 +139,8 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     5. If a website contains zero valid IT/Tech intern or trainee positions, do NOT extract anything from that site.
 
     ⚠️ JSON INTEGRITY RULES:
-    - Ensure ALL output strings are safe for standard JSON parsing.
-    - Remove any unescaped double quotes, control characters, or trailing commas within objects.
+    - Return a RAW valid JSON array. Do not wrap it in anything else. 
+    - Ensure all output strings use proper escaping and do not contain raw unescaped double quotes inside the text values.
 
     Scraped Content:
     {raw_text}
@@ -146,7 +159,6 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
         }
     }
     
-    # 💡 Smart Retry Loop (503 සර්වර් ඩවුන් හෝ Delimiter බග් එකක් ආවොත් බේරෙන්න)
     max_retries = 3
     retry_delay = 5
     
@@ -162,10 +174,11 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
                 ),
             )
             
-            # 💡 Clean JSON String (පයිතන් වලට කියවන්න බැරි වෙන අමුතු කොටස් පිරිසිදු කිරීම)
             clean_response_text = response.text.strip()
             
-            # පයිතන් JSON ලෝඩර් එකට ඔරොත්තු දෙන විදිහට parsing කිරීම
+            # 💡 4. Gemini එකේ response එකේ මොනවා හරි අමුතු පාලන අක්ෂර තිබ්බොත් ඒවා පිරිසිදු කරනවා මචං
+            clean_response_text = re.sub(r'[\x00-\x1F\x7F]', '', clean_response_text)
+            
             vacancies = json.loads(clean_response_text)
             print(f"✅ Gemini processed everything successfully on attempt {attempt + 1} and found {len(vacancies)} valid internships!")
             return {"extracted_vacancies": vacancies}
