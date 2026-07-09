@@ -115,6 +115,17 @@ class JobVacancy(BaseModel):
     skills: List[str] = Field(description="List of key technical skills required for the role.")
 
 
+# 💡 Gemini structured output eke top-level "array" (List[Model]) schema eka
+# convert karaddi anivarayen "Unsupported schema type: ... type=None" error eka
+# denawa (ada google-genai versions tikaka mekata bugs thiyenawa). Object
+# wrapper ekakin list eka warap karama meka avoid karanna puluwan.
+class JobVacancyList(BaseModel):
+    vacancies: List[JobVacancy] = Field(
+        default_factory=list,
+        description="List of extracted IT/Tech internship or trainee vacancies."
+    )
+
+
 def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     """
     Third node: send the full text to Gemini using Pydantic structured output.
@@ -122,57 +133,60 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     """
     print("\nNode 3: Analyzing text in one request with Gemini (Structured Output Mode)...")
     raw_text = state.get("current_raw_text", "")
-    
+
     if not raw_text.strip():
         print("No scraped text available for analysis.")
         return {"extracted_vacancies": []}
-        
+
     prompt = f"""
-    You are an expert HR Data Extraction Agent specializing in the Technology and Software Engineering sectors. 
+    You are an expert HR Data Extraction Agent specializing in the Technology and Software Engineering sectors.
     Analyze the provided scraped content enclosed in <source_site> tags.
-    
+
     CRITICAL INSTRUCTION: Your ONLY task is to extract job openings that are strictly for IT/Software Industry "Interns", "Internships", or "Trainees".
-    
+
     STRICT FILTERING RULES:
     1. The position MUST be a learning/entry-level role (e.g., Intern, Trainee) AND MUST belong strictly to the Information Technology (IT) / Software Engineering domain.
-    
+
     2. ALLOWED TECH DOMAINS (EXTRACT THESE):
        - Software Engineering / Web Development (Fullstack, Backend, Frontend, React, .NET, Python, Node, PHP, Laravel, Java, etc.)
        - AI / Machine Learning / Data Science / Data Analytics / Data Engineer
-       
+
     3. STRICTLY FORBIDDEN DOMAINS (DO NOT EXTRACT THESE):
        - Completely ignore non-tech roles even if they have "Intern" or "Trainee" in the title.
        - Strictly FORBIDDEN: Finance, Accounting, Management Trainee, Human Resources (HR), Marketing, Sales, Business Development, Logistics, Procurement, Administrative, Secretarial, Operations, Industrial Engineering, or Mechanical roles. (e.g., Do NOT extract "Finance Intern", "Marketing Intern", or "Management Trainee").
 
     4. Ensure the 'company_source' field matches the EXACT 'url' attribute specified in the corresponding <source_site> tag where the vacancy was found.
-    
+
     5. If a website contains zero valid IT/Tech intern or trainee positions, do NOT extract anything from that site.
+
+    Return the result as a JSON object with a single key "vacancies" containing the list (an empty list if nothing found).
 
     Scraped Content:
     {raw_text}
     """
-    
+
     max_retries = 3
     retry_delay = 5
-    
+
     for attempt in range(max_retries):
         try:
-            # 💡 response_schema එකට Pydantic Model List එකක් පාස් කරලා Structured Output සක්‍රීය කළා මචං
+            # 💡 Top-level List[JobVacancy] wenuwata JobVacancyList (object wrapper) dala
+            # schema conversion error eka avoid karanawa.
             response = client.models.generate_content(
                 model='gemini-2.5-flash-lite',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=List[JobVacancy],
+                    response_schema=JobVacancyList,
                     temperature=0.0
                 ),
             )
-            
-            # Google GenAI SDK එකෙන් එවන text එක කෙලින්ම සේෆ්ලි load කරන්න පුළුවන්
-            vacancies = json.loads(response.text)
+
+            parsed = json.loads(response.text)
+            vacancies = parsed.get("vacancies", [])
             print(f"✅ Gemini processed everything successfully using Pydantic on attempt {attempt + 1} and found {len(vacancies)} valid internships!")
             return {"extracted_vacancies": vacancies}
-            
+
         except Exception as e:
             print(f"⚠️ Attempt {attempt + 1}/{max_retries} failed with error: {e}")
             if attempt < max_retries - 1:
