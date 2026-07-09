@@ -1,15 +1,18 @@
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
-from google import genai
-from google.genai import types
 import os
 import json
+import time
+import re
+from typing import List
 import gspread
-import time  # 💡 Retry logic එකට time සෙට් කළා මචං
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
+from pydantic import BaseModel, Field
+
+from google import genai
+from google.genai import types
 from state import CareerSpyState
 from search_utils import get_google_search_urls  # Import the Google search helper.
-import re
 
 load_dotenv()
 
@@ -48,7 +51,6 @@ def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
     return {"urls": unique_urls}
 
 
-
 def scraper_node(state: CareerSpyState) -> CareerSpyState:
     """
     Second node: use Playwright to render JavaScript-heavy pages, then clean the
@@ -80,9 +82,9 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
                 
                 clean_text = soup.get_text(separator=' ', strip=True)
                 
-                # 💡 2. ATS පේජ් වල තියෙන අමුතු JSON/Config ලයින්, බහුතරයක් spaces සහ නිව්ලයින් ක්ලීන් කිරීම
-                clean_text = re.sub(s=clean_text, pattern=r'\s+', repl=' ') # Multiple spaces/newlines තනි සිංගල් ස්පේස් එකක් කරනවා
-                clean_text = re.sub(s=clean_text, pattern=r'[{}[\]""\\]', repl=' ') # JSON කඩන බකට් සහ ස්ලෑෂ් අයින් කරනවා මචං
+                # 💡 2. re.sub එකේ බග් එක හැදුවා මචං (s= වෙනුවට string= දාලා)
+                clean_text = re.sub(pattern=r'\s+', repl=' ', string=clean_text)  # Multiple spaces/newlines තනි සිංගල් ස්පේස් එකක් කරනවා
+                clean_text = re.sub(pattern=r'[{}[\]""\\]', repl=' ', string=clean_text)  # JSON කඩන බකට් සහ ස්ලෑෂ් අයින් කරනවා
                 
                 # 💡 3. එක සයිට් එකකින් උපරිම අකුරු 40,000කට සීමා කරනවා (Tokens ඉතිරි කරගන්න සහ බග්ස් වළක්වන්න)
                 if len(clean_text) > 40000:
@@ -105,14 +107,13 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
         "current_raw_text": combined_text
     }
 
-from pydantic import BaseModel, Field  # 💡 මේක උඩින්ම import කරගන්න මචං
-from typing import List
 
-# 💡 1. Gemini එකෙන් එළියට ගන්න ඕන Structure එක Pydantic වලින් ඩිෆයින් කරනවා
+# 💡 Gemini එකෙන් ලැබෙන්න ඕන Structure එක Pydantic වලින් නිවැරදිව ඩිෆයින් කළා මචං
 class JobVacancy(BaseModel):
     job_title: str = Field(description="The strictly IT/Tech internship or trainee title found.")
     company_source: str = Field(description="The exact source website URL where this vacancy was found.")
     skills: List[str] = Field(description="List of key technical skills required for the role.")
+
 
 def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     """
@@ -137,7 +138,7 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     2. ALLOWED TECH DOMAINS (EXTRACT THESE):
        - Software Engineering / Web Development (Fullstack, Backend, Frontend, React, .NET, Python, Node, PHP, Laravel, Java, etc.)
-       - AI / Machine Learning / Data Science / Data Analytics
+       - AI / Machine Learning / Data Science / Data Analytics / Data Engineer
        
     3. STRICTLY FORBIDDEN DOMAINS (DO NOT EXTRACT THESE):
        - Completely ignore non-tech roles even if they have "Intern" or "Trainee" in the title.
@@ -156,18 +157,18 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     for attempt in range(max_retries):
         try:
-            # 💡 2. මෙතනදී අපි 'response_schema' එකට කෙලින්ම අපේ Pydantic Class එක දෙනවා List එකක් ඇතුළේ
+            # 💡 response_schema එකට Pydantic Model List එකක් පාස් කරලා Structured Output සක්‍රීය කළා මචං
             response = client.models.generate_content(
                 model='gemini-2.5-flash-lite',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=List[JobVacancy], # 👈 Pydantic Model List එකක් දෙනවා මචං
+                    response_schema=List[JobVacancy],
                     temperature=0.0
                 ),
             )
             
-            # 💡 3. Google SDK එකෙන් එවන Text එක දැනටමත් Safe JSON එකක් නිසා කෙලින්ම load කරන්න පුළුවන්
+            # Google GenAI SDK එකෙන් එවන text එක කෙලින්ම සේෆ්ලි load කරන්න පුළුවන්
             vacancies = json.loads(response.text)
             print(f"✅ Gemini processed everything successfully using Pydantic on attempt {attempt + 1} and found {len(vacancies)} valid internships!")
             return {"extracted_vacancies": vacancies}
