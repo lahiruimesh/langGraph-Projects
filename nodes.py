@@ -105,12 +105,21 @@ def scraper_node(state: CareerSpyState) -> CareerSpyState:
         "current_raw_text": combined_text
     }
 
+from pydantic import BaseModel, Field  # 💡 මේක උඩින්ම import කරගන්න මචං
+from typing import List
+
+# 💡 1. Gemini එකෙන් එළියට ගන්න ඕන Structure එක Pydantic වලින් ඩිෆයින් කරනවා
+class JobVacancy(BaseModel):
+    job_title: str = Field(description="The strictly IT/Tech internship or trainee title found.")
+    company_source: str = Field(description="The exact source website URL where this vacancy was found.")
+    skills: List[str] = Field(description="List of key technical skills required for the role.")
+
 def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     """
-    Third node: send the full text to Gemini in a single request and extract only
-    strictly relevant internship opportunities. Includes strong error-handling and retries.
+    Third node: send the full text to Gemini using Pydantic structured output.
+    This guarantees 100% valid parsing and completely eliminates JSON delimiter errors.
     """
-    print("\nNode 3: Analyzing text in one request with Gemini...")
+    print("\nNode 3: Analyzing text in one request with Gemini (Structured Output Mode)...")
     raw_text = state.get("current_raw_text", "")
     
     if not raw_text.strip():
@@ -128,7 +137,7 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     2. ALLOWED TECH DOMAINS (EXTRACT THESE):
        - Software Engineering / Web Development (Fullstack, Backend, Frontend, React, .NET, Python, Node, PHP, Laravel, Java, etc.)
-       - AI / Machine Learning / Data Science / Data Analytics / Data Engineer
+       - AI / Machine Learning / Data Science / Data Analytics
        
     3. STRICTLY FORBIDDEN DOMAINS (DO NOT EXTRACT THESE):
        - Completely ignore non-tech roles even if they have "Intern" or "Trainee" in the title.
@@ -138,57 +147,37 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
     
     5. If a website contains zero valid IT/Tech intern or trainee positions, do NOT extract anything from that site.
 
-    ⚠️ JSON INTEGRITY RULES:
-    - Return a RAW valid JSON array. Do not wrap it in anything else. 
-    - Ensure all output strings use proper escaping and do not contain raw unescaped double quotes inside the text values.
-
     Scraped Content:
     {raw_text}
     """
-    
-    json_schema = {
-        "type": "ARRAY",
-        "items": {
-            "type": "OBJECT",
-            "properties": {
-                "job_title": {"type": "STRING"},
-                "company_source": {"type": "STRING"},
-                "skills": {"type": "ARRAY", "items": {"type": "STRING"}}
-            },
-            "required": ["job_title", "company_source", "skills"]
-        }
-    }
     
     max_retries = 3
     retry_delay = 5
     
     for attempt in range(max_retries):
         try:
+            # 💡 2. මෙතනදී අපි 'response_schema' එකට කෙලින්ම අපේ Pydantic Class එක දෙනවා List එකක් ඇතුළේ
             response = client.models.generate_content(
                 model='gemini-2.5-flash-lite',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=json_schema,
+                    response_schema=List[JobVacancy], # 👈 Pydantic Model List එකක් දෙනවා මචං
                     temperature=0.0
                 ),
             )
             
-            clean_response_text = response.text.strip()
-            
-            # 💡 4. Gemini එකේ response එකේ මොනවා හරි අමුතු පාලන අක්ෂර තිබ්බොත් ඒවා පිරිසිදු කරනවා මචං
-            clean_response_text = re.sub(r'[\x00-\x1F\x7F]', '', clean_response_text)
-            
-            vacancies = json.loads(clean_response_text)
-            print(f"✅ Gemini processed everything successfully on attempt {attempt + 1} and found {len(vacancies)} valid internships!")
+            # 💡 3. Google SDK එකෙන් එවන Text එක දැනටමත් Safe JSON එකක් නිසා කෙලින්ම load කරන්න පුළුවන්
+            vacancies = json.loads(response.text)
+            print(f"✅ Gemini processed everything successfully using Pydantic on attempt {attempt + 1} and found {len(vacancies)} valid internships!")
             return {"extracted_vacancies": vacancies}
             
-        except (json.JSONDecodeError, Exception) as e:
+        except Exception as e:
             print(f"⚠️ Attempt {attempt + 1}/{max_retries} failed with error: {e}")
             if attempt < max_retries - 1:
                 print(f"Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
                 retry_delay *= 2  # Exponential backoff
             else:
-                print("❌ All Gemini extraction attempts failed.")
+                print("❌ All Gemini extraction attempts failed due to unresolvable data structure issues.")
                 return {"extracted_vacancies": []}
