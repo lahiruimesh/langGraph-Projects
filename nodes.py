@@ -14,6 +14,29 @@ load_dotenv()
 # Google GenAI client.
 client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
+def _normalize_vacancies_payload(payload):
+    if payload is None:
+        return []
+
+    if isinstance(payload, list):
+        normalized = []
+        for item in payload:
+            if hasattr(item, "model_dump"):
+                normalized.append(item.model_dump())
+            elif isinstance(item, dict):
+                normalized.append(item)
+            else:
+                normalized.append(item)
+        return normalized
+
+    if hasattr(payload, "model_dump"):
+        return [payload.model_dump()]
+
+    if isinstance(payload, dict):
+        return [payload]
+
+    return []
+
 def fetch_urls_node(state: CareerSpyState) -> CareerSpyState:
     """
     First node: combine URLs from the Google Sheet and live Google Search results
@@ -155,7 +178,22 @@ def ai_filter_node(state: CareerSpyState) -> CareerSpyState:
             ),
         )
         
-        vacancies = json.loads(response.text)
+        vacancies = None
+        try:
+            vacancies = response.parsed
+        except Exception:
+            vacancies = None
+        if vacancies is None:
+            response_text = response.text.strip()
+            if response_text.startswith("```"):
+                first_newline = response_text.find("\n")
+                if first_newline != -1:
+                    response_text = response_text[first_newline + 1 :]
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3].strip()
+            vacancies = json.loads(response_text)
+
+        vacancies = _normalize_vacancies_payload(vacancies)
         print(f"Gemini processed everything in one call and found {len(vacancies)} valid internships!")
         return {"extracted_vacancies": vacancies}
         
